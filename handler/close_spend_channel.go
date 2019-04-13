@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"svcnodr/types"
 
 	"github.com/pkg/errors"
 
@@ -12,27 +13,26 @@ import (
 
 type closeSpendChannelRequest struct {
 	*netHelpers.BaseRequest
-	ledger				*store.Ledger
-	peerAddress			string
-	peerPublicKey		string
-	trackerKeyPair		helpers.KeyPair
+	ledger         *store.Ledger
+	peerAddress    string
+	peerPublicKey  string
+	trackerKeyPair helpers.KeyPair
 }
 
 type closeSpendAddressRequestData struct {
-	Address		string	`json:"address"`
-	PublicKey	string	`json:"pk"`
+	Address   string `json:"address"`
+	PublicKey string `json:"pk"`
 }
 
 type closeSpendChannelResponseData struct {
-	PublicKey	string				`json:"pk"`
-	State		*store.ChannelFact	`json:"state"`
+	PublicKey string             `json:"pk"`
+	State     *types.ChannelFact `json:"state"`
 }
 
 func newCloseSpendChannelRequest(
 	baseRequest *netHelpers.BaseRequest,
 	keyPair helpers.KeyPair,
 	ledger *store.Ledger,
-	_ *store.Queries,
 ) (netHelpers.Requester, error) {
 	data, err := helpers.GetSignedPayloadData(baseRequest.Payload)
 
@@ -51,11 +51,11 @@ func newCloseSpendChannelRequest(
 	}
 
 	return &closeSpendChannelRequest{
-		BaseRequest: baseRequest,
-		peerAddress: obj.Address,
-		peerPublicKey: obj.PublicKey,
+		BaseRequest:    baseRequest,
+		peerAddress:    obj.Address,
+		peerPublicKey:  obj.PublicKey,
 		trackerKeyPair: keyPair,
-		ledger: ledger,
+		ledger:         ledger,
 	}, nil
 }
 
@@ -72,7 +72,7 @@ func (req *closeSpendChannelRequest) Handle() (interface{}, error) {
 
 	data := &closeSpendChannelResponseData{
 		PublicKey: trackerPublicKey,
-		State: state,
+		State:     state,
 	}
 	respData, err := helpers.NewResponseDataInterface(data, req.trackerKeyPair)
 	if err != nil {

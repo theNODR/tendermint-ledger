@@ -10,22 +10,21 @@ import (
 
 type openTransferChannelRequest struct {
 	*netHelpers.BaseRequest
-	ledger				*store.Ledger
-	message				*store.OpenContractMessage
-	trackerKeyPair		helpers.KeyPair
+	ledger         *store.Ledger
+	message        *store.OpenContractMessage
+	trackerKeyPair helpers.KeyPair
 }
 
 type openTransferChannelResponseData struct {
-	PublicKey	string	`json:"pk"`
-	TimeLock	int64	`json:"timelock"`
-	LifeTime	int64	`json:"lifetime"`
+	PublicKey string `json:"pk"`
+	TimeLock  int64  `json:"timelock"`
+	LifeTime  int64  `json:"lifetime"`
 }
 
 func newOpenTransferChannelRequest(
 	baseRequest *netHelpers.BaseRequest,
 	keyPair helpers.KeyPair,
 	ledger *store.Ledger,
-	_ *store.Queries,
 ) (netHelpers.Requester, error) {
 	data, err := helpers.GetBiSignedPayloadData(baseRequest.Payload)
 
@@ -40,9 +39,9 @@ func newOpenTransferChannelRequest(
 	}
 
 	return &openTransferChannelRequest{
-		BaseRequest: baseRequest,
-		ledger: ledger,
-		message: message,
+		BaseRequest:    baseRequest,
+		ledger:         ledger,
+		message:        message,
 		trackerKeyPair: keyPair,
 	}, nil
 }
@@ -75,8 +74,8 @@ func (req *openTransferChannelRequest) Handle() (interface{}, error) {
 
 	data := &openTransferChannelResponseData{
 		PublicKey: trackerPublicKey,
-		TimeLock: state.TimeLock,
-		LifeTime: state.LifeTime,
+		TimeLock:  state.TimeLock,
+		LifeTime:  state.LifeTime,
 	}
 	respData, err := helpers.NewResponseDataInterface(data, req.trackerKeyPair)
 	if err != nil {

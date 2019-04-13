@@ -10,20 +10,19 @@ import (
 
 type closeTransferChannelRequest struct {
 	*netHelpers.BaseRequest
-	ledger				*store.Ledger
-	message				*store.CloseContractMessage
-	trackerKeyPair		helpers.KeyPair
+	ledger         *store.Ledger
+	message        *store.CloseContractMessage
+	trackerKeyPair helpers.KeyPair
 }
 
 type closeTransferChannelResponseData struct {
-	PublicKey	string	`json:"pk"`
+	PublicKey string `json:"pk"`
 }
 
 func newCloseTransferChannelRequest(
 	baseRequest *netHelpers.BaseRequest,
 	keyPair helpers.KeyPair,
 	ledger *store.Ledger,
-	_ *store.Queries,
 ) (netHelpers.Requester, error) {
 	data, err := helpers.GetBiSignedPayloadData(baseRequest.Payload)
 
@@ -38,10 +37,10 @@ func newCloseTransferChannelRequest(
 	}
 
 	return &closeTransferChannelRequest{
-		BaseRequest: baseRequest,
-		message: message,
+		BaseRequest:    baseRequest,
+		message:        message,
 		trackerKeyPair: keyPair,
-		ledger: ledger,
+		ledger:         ledger,
 	}, nil
 }
 

@@ -7,6 +7,8 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"io/ioutil"
+	"svcledger/block"
+	"svcledger/blockchain/tendermint"
 	"time"
 
 	"github.com/jasonlvhit/gocron"
@@ -18,89 +20,87 @@ import (
 	"app/websocket_gorilla"
 	"common"
 	"common/flags"
-	"svcledger/job"
 	"svcledger/helpers"
+	"svcledger/job"
 	"svcledger/store"
-	"svcledger/blockchain"
 )
 
 const (
-	TypeName 							= "ledger"
-	servicePrivateKeyLength				= 2048
-	autoCloseInterval uint64 			= 30
-	writeFinancialBlockInterval uint64	= 60
-	syncTransactionInterval	uint64		= 3
+	TypeName                           = "ledger"
+	servicePrivateKeyLength            = 2048
+	autoCloseInterval           uint64 = 30
+	writeFinancialBlockInterval uint64 = 60
+	syncTransactionInterval     uint64 = 3
 )
 
 var (
-	blockchainEndPointUrl = flags.String("ledger-blockchain-endpoint-url", "http://13.70.22.206:8080/", "Blockchain API endpoint")
-	priceAmountIncome = flags.Uint64("ledger-price-amount-income", 500, "Min price of traffic")
-	priceAmountSpend = flags.Uint64("ledger-price-amount-spend", 500, "Max price of traffic")
-	amountInitial = flags.Uint64("ledger-amount-initial", 100000, "Initial tokens amount on wallet")
-	amountSpend = flags.Uint64("ledger-amount-spend", 10000, "Tokens in spend address after it opened")
-	priceQuantumPower = flags.Uint("ledger-quantum-power", 25, "Price power of quantum to transfer")
-	servicePrivateKeyFileName = flags.String("ledger-private-key-file-name", "", "Service private key")
-	servicePublicKeyFileName = flags.String("ledger-public-key-file-name", "", "Service public key")
-	incomeChannelLifeTime = flags.Int64("ledger-income-channel-lifetime", 30, "Income channel lifetime, min")
-	spendChannelLifeTime = flags.Int64("ledger-spend-channel-lifetime", 30, "Spend channel lifetime, min")
-	transferChannelLifeTime = flags.Int64("ledger-transfer-channel-lifetime", 5, "Transfer channel lifetime, min")
+	tendermintEndPointUrl        = flags.String("ledger-tendermint-endpoint-url", "tcp://localhost:26657", "Tendermint CLI endpoint")
+	priceAmountIncome            = flags.Uint64("ledger-price-amount-income", 500, "Min price of traffic")
+	priceAmountSpend             = flags.Uint64("ledger-price-amount-spend", 500, "Max price of traffic")
+	amountInitial                = flags.Uint64("ledger-amount-initial", 1000000, "Initial tokens amount on wallet")
+	amountSpend                  = flags.Uint64("ledger-amount-spend", 10000, "Tokens in spend address after it opened")
+	priceQuantumPower            = flags.Uint("ledger-quantum-power", 25, "Price power of quantum to transfer")
+	servicePrivateKeyFileName    = flags.String("ledger-private-key-file-name", "", "Service private key")
+	servicePublicKeyFileName     = flags.String("ledger-public-key-file-name", "", "Service public key")
+	incomeChannelLifeTime        = flags.Int64("ledger-income-channel-lifetime", 30, "Income channel lifetime, min")
+	spendChannelLifeTime         = flags.Int64("ledger-spend-channel-lifetime", 30, "Spend channel lifetime, min")
+	transferChannelLifeTime      = flags.Int64("ledger-transfer-channel-lifetime", 5, "Transfer channel lifetime, min")
+	chainId                      = flags.String("chain-id", "testchain", "Chain ID for thendermint node")
+	blockInfoServeEndPointUrl    = flags.String("block-listen-endpoint", ":2000", "Endpoint for listen blocks info")
+	tendermintBlocksInfoEndPoint = flags.String("tendermint-blocks-endpoint", "ws://localhost:8081", "Endpoint for connect to tenderming for listen Block infos")
 )
 
 type Config struct {
- 	*app.Config
- 	BlockchainEndPointUrl		string
-	Amounts						*store.Amounts
-	ServicePrivateKeyFileName	string
-	ServicePublicKeyFileName	string
-	LifeTimes					*store.LifeTimes
+	*app.Config
+	TendermintEndPointUrl     string
+	Amounts                   *store.Amounts
+	ServicePrivateKeyFileName string
+	ServicePublicKeyFileName  string
+	LifeTimes                 *store.LifeTimes
+	ChainId                   string
 }
 
 type Service struct {
-	address				string
-	keyPair				helpers.KeyPair
-	queries				*store.Queries
-	silentSch			*gocron.Scheduler
-	silentSchStop		chan bool
-	waiters				store.Waiters
-	writer				blockchain.Writer
+	address       string
+	keyPair       helpers.KeyPair
+	silentSch     *gocron.Scheduler
+	silentSchStop chan bool
 
-	BlockchainClient	*blockchain.Client
-	Config				*Config
-	Hub					websocket.Huber
-	SocketHandler		websocket.SocketHandler
-	Ledger				*store.Ledger
+	BlockBroadcast   *block.BlockBroadcaster
+	BlockchainClient *tendermint.TendermintClient
+	Config           *Config
+	Hub              websocket.Huber
+	SocketHandler    websocket.SocketHandler
+	Ledger           *store.Ledger
 }
 
 func NewService(config *app.Config) (*Service, error) {
 	svcConfig := &Config{
-		Config: config,
-		BlockchainEndPointUrl: *blockchainEndPointUrl,
+		Config:                config,
+		TendermintEndPointUrl: *tendermintEndPointUrl,
 		Amounts: &store.Amounts{
-			Initial: store.TransactionAmountType(*amountInitial),
-			Spend:  store.TransactionAmountType(*amountSpend),
-			PriceIncome: store.TransactionAmountType(*priceAmountIncome),
-			PriceSpend: store.TransactionAmountType(*priceAmountSpend),
+			Initial:           store.TransactionAmountType(*amountInitial),
+			Spend:             store.TransactionAmountType(*amountSpend),
+			PriceIncome:       store.TransactionAmountType(*priceAmountIncome),
+			PriceSpend:        store.TransactionAmountType(*priceAmountSpend),
 			PriceQuantumPower: store.QuantumPowerType(*priceQuantumPower),
 		},
 		ServicePrivateKeyFileName: *servicePrivateKeyFileName,
-		ServicePublicKeyFileName: *servicePublicKeyFileName,
+		ServicePublicKeyFileName:  *servicePublicKeyFileName,
 		LifeTimes: &store.LifeTimes{
-			IncomeChannel: int64(time.Duration(*incomeChannelLifeTime) * time.Minute / time.Millisecond),
-			SpendChannel: int64(time.Duration(*spendChannelLifeTime) * time.Minute / time.Millisecond),
+			IncomeChannel:   int64(time.Duration(*incomeChannelLifeTime) * time.Minute / time.Millisecond),
+			SpendChannel:    int64(time.Duration(*spendChannelLifeTime) * time.Minute / time.Millisecond),
 			TransferChannel: int64(time.Duration(*transferChannelLifeTime) * time.Minute / time.Millisecond),
 		},
+		ChainId: *chainId,
 	}
 
-	client, err := blockchain.NewClient(svcConfig.BlockchainEndPointUrl)
-	if err != nil {
-		return nil, err
-	}
+	client := tendermint.NewTendermintClient(svcConfig.ChainId, svcConfig.TendermintEndPointUrl)
 
 	svc := &Service{
 		BlockchainClient: client,
-		Config: svcConfig,
-		waiters: store.NewWaiters(),
-		writer: blockchain.NewWriter(client),
+		Config:           svcConfig,
+		BlockBroadcast:   block.NewWsBlockBroadcaster(*tendermintBlocksInfoEndPoint, *blockInfoServeEndPointUrl),
 	}
 
 	return svc, nil
@@ -117,13 +117,13 @@ func (svc *Service) startKeys() error {
 	if err != nil {
 		return err
 	} else {
-		common.Log.PrintFull(common.Printf("%v", pk), )
+		common.Log.PrintFull(common.Printf("%v", pk))
 	}
 	sk, err := keyPair.PrivateKey()
 	if err != nil {
 		return err
 	} else {
-		common.Log.PrintFull(common.Printf("%v", sk), )
+		common.Log.PrintFull(common.Printf("%v", sk))
 	}
 
 	svc.keyPair = keyPair
@@ -132,58 +132,35 @@ func (svc *Service) startKeys() error {
 	return nil
 }
 
-func (svc *Service) startTransactionLoader() error {
-	trans := make(blockchain.TranItems, 0, 0)
-	for {
-		t, err := svc.BlockchainClient.GetTrans()
-
-		if err != nil {
-			return err
-		}
-
-		if len(t.Data) > 0 {
-			trans = append(trans, t.Data...)
-		}
-
-		if t.ReadAll {
-			break
-		}
-	}
-
+func (svc *Service) startLedger() error {
 	var err error
-	if err = svc.waiters.Start(); err != nil {
-		return err
-	}
-	if err = svc.writer.Start(); err != nil {
-		return err
-	}
 
-	svc.Ledger, err = store.NewLedger(
+	ledger, err := store.NewLedger(
 		svc.address,
 		svc.keyPair,
-		trans,
 		svc.Config.Amounts,
 		svc.Config.LifeTimes,
-		svc.waiters,
-		svc.writer,
+		svc.BlockchainClient,
 	)
+
 	if err != nil {
 		return err
 	}
 
-
+	svc.Ledger = ledger
 	return nil
+}
+
+func (svc *Service) startBlockBroadcaster() error {
+	return svc.BlockBroadcast.Start()
 }
 
 func (svc *Service) startWebSocket() error {
 	var err error
 
-	svc.queries = store.NewQueries()
-
 	handler, err := handlerFunc(
 		svc.keyPair,
 		svc.Ledger,
-		svc.queries,
 	)
 	if err != nil {
 		return err
@@ -201,6 +178,7 @@ func (svc *Service) startWebSocket() error {
 		nil,
 		true,
 	)
+
 	if err != nil {
 		return err
 	}
@@ -222,11 +200,6 @@ func (svc *Service) createSilentScheduler() (*gocron.Scheduler, chan bool) {
 		Seconds().
 		Do(job.WriteFinancialBlock(svc.Ledger))
 
-	scheduler.
-		Every(syncTransactionInterval).
-		Seconds().
-		Do(job.Syncer(svc.Ledger, svc.BlockchainClient))
-
 	schedulerStop := scheduler.Start()
 
 	return scheduler, schedulerStop
@@ -240,7 +213,7 @@ func (svc *Service) Start() error {
 		return err
 	}
 
-	err = svc.startTransactionLoader()
+	err = svc.startLedger()
 	if err != nil {
 		return err
 	}
@@ -254,17 +227,20 @@ func (svc *Service) Start() error {
 	common.Log.PrintFull(
 		common.Printf("try to init tokens on wallet"),
 	)
-	status, err := svc.Ledger.Init(svc.Config.Amounts.Initial)
 
-	if status == store.InvalidTransactionStatus {
-		return err
-	} else {
+	_, err = svc.Ledger.Init(svc.Config.Amounts.Initial)
+	if err != nil {
 		common.Log.PrintFull(
-			common.Printf("init tokens on wallet result: %v", status),
+			common.Printf("init tokens on wallet error: %v", err),
 		)
 	}
 
 	err = svc.startWebSocket()
+	if err != nil {
+		return err
+	}
+
+	err = svc.startBlockBroadcaster()
 	if err != nil {
 		return err
 	}
@@ -279,20 +255,12 @@ func (svc *Service) Stop() error {
 		svc.SocketHandler.Shutdown()
 	}
 
-	if svc.writer != nil {
-		svc.writer.Stop()
-	}
-
-	if svc.waiters != nil {
-		svc.waiters.Stop()
-	}
-
-	if svc.queries != nil {
-		svc.queries.Stop()
-	}
-
 	if svc.silentSchStop != nil {
 		svc.silentSchStop <- true
+	}
+
+	if svc.BlockBroadcast != nil {
+		svc.BlockBroadcast.Stop()
 	}
 
 	return err
@@ -308,12 +276,12 @@ func (svc *Service) getRsaPrivateKey() (*rsa.PrivateKey, error) {
 
 		pemdata := pem.EncodeToMemory(
 			&pem.Block{
-				Type: "RSA PRIVATE KEY",
+				Type:  "RSA PRIVATE KEY",
 				Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
 			},
 		)
 
-		common.Log.PrintFull(common.Printf("%v", string(pemdata[:]), ), )
+		common.Log.PrintFull(common.Printf("%v", string(pemdata[:])))
 
 		if err != nil {
 			return nil, err
@@ -350,12 +318,12 @@ func (svc *Service) getRSAPublicKey(privateKey *rsa.PrivateKey) (crypto.PublicKe
 
 		pemdata := pem.EncodeToMemory(
 			&pem.Block{
-				Type: "PUBLIC KEY",
+				Type:  "PUBLIC KEY",
 				Bytes: publicKeyBytes,
 			},
 		)
 
-		common.Log.PrintFull(common.Printf("%v", string(pemdata[:]), ), )
+		common.Log.PrintFull(common.Printf("%v", string(pemdata[:])))
 	} else {
 		key, err := ioutil.ReadFile(svc.Config.ServicePublicKeyFileName)
 

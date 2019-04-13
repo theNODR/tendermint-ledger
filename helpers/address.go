@@ -15,19 +15,19 @@ func (t addressType) ToString() string {
 
 const (
 	incomeAddressType addressType = "income"
-	spendAddressType addressType = "spend"
+	spendAddressType  addressType = "spend"
 )
 
 const (
 	commonAddressPrefix string = "0x0b"
 	incomeAddressPrefix string = "0x0d"
-	spendAddressPrefix string = "0x0c"
+	spendAddressPrefix  string = "0x0c"
 )
 
 const (
-	addressHashSeed		= 0x2018CADD
-	addressHashBase		= 16
-	oldAddressLen		= 44
+	addressHashSeed = 0x2018CADD
+	addressHashBase = 16
+	oldAddressLen   = 44
 )
 
 func createAddressFromString(source string) string {
@@ -41,11 +41,11 @@ func createAddressFromBytes(source []byte) string {
 }
 
 func createSpecialAddress(trackerPublicKey string, peerPublicKey string, addressType addressType, timestamp int64) string {
-	return createAddressFromString(trackerPublicKey + ";" + peerPublicKey +";" + addressType.ToString() + ";" + strconv.FormatInt(timestamp, 16))
+	return createAddressFromString(trackerPublicKey + ";" + peerPublicKey + ";" + addressType.ToString() + ";" + strconv.FormatInt(timestamp, 16))
 }
 
 func createAddressHash(prefix string, addressValue string) string {
-	return strconv.FormatUint(xxhash.ChecksumString64S(prefix + addressValue, addressHashSeed), addressHashBase)
+	return strconv.FormatUint(xxhash.ChecksumString64S(prefix+addressValue, addressHashSeed), addressHashBase)
 }
 
 func CreateCommonAddress(pk string) string {

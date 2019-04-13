@@ -7,17 +7,16 @@ import (
 	"app/websocket"
 	"common"
 	"svcledger/handler"
+	"svcledger/helpers"
 	"svcledger/logger"
 	"svcledger/store"
 	"svcledger/websocketData"
 	"svcledger/websocketHelper"
-	"svcledger/helpers"
 )
 
 func handlerFunc(
 	keyPair helpers.KeyPair,
 	ledger *store.Ledger,
-	queries *store.Queries,
 ) (websocket.HandlerFunc, error) {
 	handlers, err := handler.NewHandlers()
 
@@ -30,28 +29,28 @@ func handlerFunc(
 		case websocket.SocketEventPing:
 			common.Log.Event(
 				logger.EventLedgerWebSocketPing,
-				common.Printf("[WS ledger] ping: %v", ctx.ConnectionId(), ),
+				common.Printf("[WS ledger] ping: %v", ctx.ConnectionId()),
 			)
 			break
 
 		case websocket.SocketEventPong:
 			common.Log.Event(
 				logger.EventLedgerWebSocketPong,
-				common.Printf("[WS ledger] pong: %v", ctx.ConnectionId(), ),
+				common.Printf("[WS ledger] pong: %v", ctx.ConnectionId()),
 			)
 			break
 
 		case websocket.SocketEventOpen:
 			common.Log.Event(
 				logger.EventLedgerWebSocketOpen,
-				common.Printf("[WS ledger] open: %v", ctx.ConnectionId(), ),
+				common.Printf("[WS ledger] open: %v", ctx.ConnectionId()),
 			)
 			break
 
 		case websocket.SocketEventClose:
 			common.Log.Event(
 				logger.EventLedgerWebSocketClose,
-				common.Printf("[WS ledger] close: %v", ctx.ConnectionId(), ),
+				common.Printf("[WS ledger] close: %v", ctx.ConnectionId()),
 			)
 			break
 
@@ -59,12 +58,12 @@ func handlerFunc(
 			if !ctx.ExistConnection() {
 				common.Log.StatError(
 					logger.ErrorLedgerWebSocketOpen,
-					common.Printf("[WS ledger] error: on open connection: %v", ctx.Error(), ),
+					common.Printf("[WS ledger] error: on open connection: %v", ctx.Error()),
 				)
 			} else {
 				common.Log.StatError(
 					logger.ErrorLedgerWebSocket,
-					common.Printf("[WS ledger] error: %v: %v", ctx.ConnectionId(), ctx.Error(), ),
+					common.Printf("[WS ledger] error: %v: %v", ctx.ConnectionId(), ctx.Error()),
 				)
 			}
 			break
@@ -72,7 +71,7 @@ func handlerFunc(
 		case websocket.SocketEventMessage:
 			common.Log.Event(
 				logger.EventLedgerWebSocketMessage,
-				common.Printf("[WS ledger] message: %v", ctx.ConnectionId(), ),
+				common.Printf("[WS ledger] message: %v", ctx.ConnectionId()),
 			)
 			incomingMessage := &websocketData.IncomingMessage{}
 			err := json.Unmarshal(ctx.Message().Payload, incomingMessage)
@@ -92,7 +91,6 @@ func handlerFunc(
 			wsHandlerFunc := handlerFunc(
 				keyPair,
 				ledger,
-				queries,
 			)
 
 			websocketHelper.Handler(
@@ -121,7 +119,7 @@ func sendInvalidPayloadError(ctx websocket.HandlerContext, err error) {
 	)
 	common.Log.StatError(
 		logger.ErrorLedgerInvalidMessage,
-		common.Printf(errorLogText, ),
+		common.Printf(errorLogText),
 	)
 	errorResponse.SendError(ctx, errorLogText)
 }
@@ -137,7 +135,7 @@ func sendInvalidCmdError(ctx websocket.HandlerContext, message *websocketData.In
 	)
 	common.Log.StatError(
 		logger.ErrorLedgerInvalidCommandMessage,
-		common.Printf(errorLogText, ),
+		common.Printf(errorLogText),
 	)
 	errorResponse.SendError(ctx, errorLogText)
 }

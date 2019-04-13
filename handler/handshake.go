@@ -10,14 +10,13 @@ import (
 
 type handshakeRequest struct {
 	*netHelpers.BaseRequest
-	trackerKeyPair	helpers.KeyPair
+	trackerKeyPair helpers.KeyPair
 }
 
 func newHandshakeRequest(
 	baseRequest *netHelpers.BaseRequest,
 	keyPair helpers.KeyPair,
 	_ *store.Ledger,
-	_ *store.Queries,
 ) (netHelpers.Requester, error) {
 	data, err := helpers.GetSignedPayloadData(baseRequest.Payload)
 
@@ -29,7 +28,7 @@ func newHandshakeRequest(
 	}
 
 	return &handshakeRequest{
-		BaseRequest: baseRequest,
+		BaseRequest:    baseRequest,
 		trackerKeyPair: keyPair,
 	}, nil
 }

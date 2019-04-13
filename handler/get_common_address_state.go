@@ -4,36 +4,35 @@ import (
 	"encoding/json"
 
 	"github.com/pkg/errors"
-
 	"svcledger/helpers"
 	"svcledger/netHelpers"
 	"svcledger/store"
+	ntypes "svcnodr/types"
 )
 
 type getCommonAddressState struct {
 	*netHelpers.BaseRequest
 
-	address			string
-	ledger			*store.Ledger
-	trackerKeyPair	helpers.KeyPair
+	address        string
+	ledger         *store.Ledger
+	trackerKeyPair helpers.KeyPair
 }
 
 type getCommonAddressStateRequestData struct {
-	Address		string	`json:"address"`
-	PublicKey	string	`json:"pk"`
+	Address   string `json:"address"`
+	PublicKey string `json:"pk"`
 }
 
 type getCommonAddressStateResponseData struct {
-	Address		string								`json:"address"`
-	State		*store.CommonAddressBalanceState	`json:"state"`
-	PublicKey	string								`json:"pk"`
+	Address   string                              `json:"address"`
+	State     *ntypes.TrackerBalanceStateResponse `json:"state"`
+	PublicKey string                              `json:"pk"`
 }
 
 func newGetCommonAddressState(
 	baseRequest *netHelpers.BaseRequest,
 	keyPair helpers.KeyPair,
 	ledger *store.Ledger,
-	_ *store.Queries,
 ) (netHelpers.Requester, error) {
 	data, err := helpers.GetSignedPayloadData(baseRequest.Payload)
 	if err != nil {
@@ -53,9 +52,9 @@ func newGetCommonAddressState(
 	}
 
 	return &getCommonAddressState{
-		BaseRequest: baseRequest,
-		address: obj.Address,
-		ledger: ledger,
+		BaseRequest:    baseRequest,
+		address:        obj.Address,
+		ledger:         ledger,
 		trackerKeyPair: keyPair,
 	}, nil
 }
@@ -72,8 +71,8 @@ func (req *getCommonAddressState) Handle() (interface{}, error) {
 	}
 
 	data := &getCommonAddressStateResponseData{
-		Address: req.address,
-		State: state,
+		Address:   req.address,
+		State:     state,
 		PublicKey: trackerPublicKey,
 	}
 	respData, err := helpers.NewResponseDataInterface(data, req.trackerKeyPair)

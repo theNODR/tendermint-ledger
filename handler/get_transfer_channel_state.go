@@ -2,37 +2,36 @@ package handler
 
 import (
 	"encoding/json"
-
 	"github.com/pkg/errors"
 
 	"svcledger/helpers"
 	"svcledger/netHelpers"
 	"svcledger/store"
+	ntypes "svcnodr/types"
 )
 
 type getTransferChannelState struct {
 	*netHelpers.BaseRequest
-	channelId		string
-	ledger			*store.Ledger
-	trackerKeyPair	helpers.KeyPair
+	channelId      string
+	ledger         *store.Ledger
+	trackerKeyPair helpers.KeyPair
 }
 
 type getTransferChannelStateRequestData struct {
-	ChannelId	string	`json:"channelId"`
-	PublicKey	string	`json:"pk"`
+	ChannelId string `json:"channelId"`
+	PublicKey string `json:"pk"`
 }
 
 type getTransferChannelStateResponseData struct {
-	ChannelId	string						`json:"channelId"`
-	State		store.TransferChannelStatus	`json:"state"`
-	PublicKey	string						`json:"pk"`
+	ChannelId string                       `json:"channelId"`
+	State     ntypes.TransferChannelStatus `json:"state"`
+	PublicKey string                       `json:"pk"`
 }
 
 func newTransferChannelStateRequest(
 	baseRequest *netHelpers.BaseRequest,
 	keyPair helpers.KeyPair,
 	ledger *store.Ledger,
-	_ *store.Queries,
 ) (netHelpers.Requester, error) {
 	data, err := helpers.GetSignedPayloadData(baseRequest.Payload)
 
@@ -51,9 +50,9 @@ func newTransferChannelStateRequest(
 	}
 
 	return &getTransferChannelState{
-		BaseRequest: baseRequest,
-		channelId: obj.ChannelId,
-		ledger: ledger,
+		BaseRequest:    baseRequest,
+		channelId:      obj.ChannelId,
+		ledger:         ledger,
 		trackerKeyPair: keyPair,
 	}, nil
 }
@@ -71,7 +70,7 @@ func (req *getTransferChannelState) Handle() (interface{}, error) {
 
 	data := &getTransferChannelStateResponseData{
 		ChannelId: req.channelId,
-		State: state,
+		State:     state,
 		PublicKey: trackerPublicKey,
 	}
 	respData, err := helpers.NewResponseDataInterface(data, req.trackerKeyPair)

@@ -3,8 +3,8 @@ package netHelpers
 import (
 	"encoding/json"
 
-	"svcledger/store"
 	"svcledger/helpers"
+	"svcledger/store"
 )
 
 type Requester interface {
@@ -12,7 +12,7 @@ type Requester interface {
 }
 
 type BaseRequest struct {
-	Payload				*json.RawMessage
+	Payload *json.RawMessage
 }
 
 type CreateRequester = func(request *BaseRequest) (Requester, error)
@@ -21,5 +21,4 @@ type NewRequest = func(
 	request *BaseRequest,
 	keyPair helpers.KeyPair,
 	ledger *store.Ledger,
-	queries *store.Queries,
 ) (Requester, error)

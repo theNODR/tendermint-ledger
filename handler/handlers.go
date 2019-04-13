@@ -3,20 +3,19 @@ package handler
 import (
 	"github.com/pkg/errors"
 
+	"svcledger/helpers"
 	"svcledger/netHelpers"
 	"svcledger/store"
 	"svcledger/websocketData"
-	"svcledger/helpers"
 )
 
 type WSHandlerFunc = func(
 	keyPair helpers.KeyPair,
 	ledger *store.Ledger,
-	queries *store.Queries,
 ) netHelpers.CreateRequester
 
 type Handlers struct {
-	items	map[websocketData.CmdType]WSHandlerFunc
+	items map[websocketData.CmdType]WSHandlerFunc
 }
 
 func NewHandlers() (*Handlers, error) {
@@ -76,21 +75,6 @@ func NewHandlers() (*Handlers, error) {
 		return nil, err
 	}
 
-	err = h.register(websocketData.GetFirstTransactionsCmd, newGetFirstTransactionsRequest)
-	if err != nil {
-		return nil, err
-	}
-
-	err = h.register(websocketData.GetNextTransactionsCmd, newGetNextTransactionsRequest)
-	if err != nil {
-		return nil, err
-	}
-
-	err = h.register(websocketData.UpdateTransactionsCursorCmd, newUpdateTransactionsCursorRequest)
-	if err != nil {
-		return nil, err
-	}
-
 	err = h.register(websocketData.GetCommonAddressStateCmd, newGetCommonAddressState)
 	if err != nil {
 		return nil, err
@@ -99,35 +83,31 @@ func NewHandlers() (*Handlers, error) {
 	return h, nil
 }
 
-func (h* Handlers) createHandler(newRequest netHelpers.NewRequest) (WSHandlerFunc) {
-	return func (
+func (h *Handlers) createHandler(newRequest netHelpers.NewRequest) WSHandlerFunc {
+	return func(
 		keyPair helpers.KeyPair,
 		ledger *store.Ledger,
-		queries *store.Queries,
 	) netHelpers.CreateRequester {
 		return func(baseRequest *netHelpers.BaseRequest) (netHelpers.Requester, error) {
 			return newRequest(
 				baseRequest,
 				keyPair,
-				ledger,
-				queries,
-			)
+				ledger)
 		}
 	}
 }
 
-func (h* Handlers) register(handlerType websocketData.CmdType, request netHelpers.NewRequest) (error) {
+func (h *Handlers) register(handlerType websocketData.CmdType, request netHelpers.NewRequest) error {
 	if _, ok := h.items[handlerType]; ok {
 		return errors.New("handler already exist")
 	}
 
 	h.items[handlerType] = h.createHandler(request)
 
-
 	return nil
 }
 
-func (h* Handlers) Execute(handlerType websocketData.CmdType) (WSHandlerFunc, error) {
+func (h *Handlers) Execute(handlerType websocketData.CmdType) (WSHandlerFunc, error) {
 	item, ok := h.items[handlerType]
 
 	if !ok {
