@@ -5,6 +5,7 @@ import (
 	"svcnodr/handlers"
 	ntypes "svcnodr/types"
 	"sync"
+	"time"
 
 	"common"
 	"svcledger/blockchain"
@@ -69,6 +70,12 @@ func (l *Ledger) Init(amount TransactionAmountType) (TransactionStatus, error) {
 	)
 
 	err := l.client.SendInit(tran)
+	for err != nil {
+		time.Sleep(5 * time.Second)
+		common.Log.Error("ErrorInitLedgerBalance", common.Printf("Can`t init ledger balance. %v", err))
+		err = l.client.SendInit(tran)
+	}
+
 	if err != nil {
 		return InvalidTransactionStatus, err
 	}

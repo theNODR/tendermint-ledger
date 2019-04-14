@@ -1,6 +1,7 @@
 package svcledger
 
 import (
+	"app/http_handler"
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
@@ -9,6 +10,7 @@ import (
 	"io/ioutil"
 	"svcledger/block"
 	"svcledger/blockchain/tendermint"
+	"svcledger/httpHandlers"
 	"time"
 
 	"github.com/jasonlvhit/gocron"
@@ -37,8 +39,8 @@ var (
 	tendermintEndPointUrl        = flags.String("ledger-tendermint-endpoint-url", "tcp://localhost:26657", "Tendermint CLI endpoint")
 	priceAmountIncome            = flags.Uint64("ledger-price-amount-income", 500, "Min price of traffic")
 	priceAmountSpend             = flags.Uint64("ledger-price-amount-spend", 500, "Max price of traffic")
-	amountInitial                = flags.Uint64("ledger-amount-initial", 1000000, "Initial tokens amount on wallet")
-	amountSpend                  = flags.Uint64("ledger-amount-spend", 10000, "Tokens in spend address after it opened")
+	amountInitial                = flags.Uint64("ledger-amount-initial", 10000000000000000, "Initial tokens amount on wallet")
+	amountSpend                  = flags.Uint64("ledger-amount-spend", 1000, "Tokens in spend address after it opened")
 	priceQuantumPower            = flags.Uint("ledger-quantum-power", 25, "Price power of quantum to transfer")
 	servicePrivateKeyFileName    = flags.String("ledger-private-key-file-name", "", "Service private key")
 	servicePublicKeyFileName     = flags.String("ledger-public-key-file-name", "", "Service public key")
@@ -47,7 +49,7 @@ var (
 	transferChannelLifeTime      = flags.Int64("ledger-transfer-channel-lifetime", 5, "Transfer channel lifetime, min")
 	chainId                      = flags.String("chain-id", "testchain", "Chain ID for thendermint node")
 	blockInfoServeEndPointUrl    = flags.String("block-listen-endpoint", ":2000", "Endpoint for listen blocks info")
-	tendermintBlocksInfoEndPoint = flags.String("tendermint-blocks-endpoint", "ws://localhost:8081", "Endpoint for connect to tenderming for listen Block infos")
+	tendermintBlocksInfoEndPoint = flags.String("tendermint-blocks-endpoint", "tcp://localhost:26601", "Endpoint for connect to tenderming for listen Block infos")
 )
 
 type Config struct {
@@ -72,6 +74,7 @@ type Service struct {
 	Hub              websocket.Huber
 	SocketHandler    websocket.SocketHandler
 	Ledger           *store.Ledger
+	HttpHandler      http_handler.HttpHandler
 }
 
 func NewService(config *app.Config) (*Service, error) {
@@ -168,6 +171,7 @@ func (svc *Service) startWebSocket() error {
 
 	//svc.SocketHandler = websocket_gobwas.NewSocketHandler(ln, handler, nil)
 	router := httputil.NewEmptyRouter(svc.Config.IsDevelopment())
+	router.Handle("POST", "/income", httpHandlers.HandleIncomeState(svc.BlockchainClient))
 
 	svc.SocketHandler, err = websocket_gorilla.NewSocketHandler(
 		svc.Config.ListenNetwork,
@@ -246,6 +250,10 @@ func (svc *Service) Start() error {
 	}
 
 	return nil
+}
+
+func (svc *Service) StartHttpRouter() {
+
 }
 
 func (svc *Service) Stop() error {
